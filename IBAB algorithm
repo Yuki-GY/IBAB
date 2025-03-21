@@ -1,0 +1,79 @@
+%% （IBAB）实现
+% 输入参数：
+%   F: 特征集合（示例中F = [1,2,3,4,5]）
+%   MAX: 目标最大特征数
+%   MIN: 目标最小特征数
+% 输出：
+%   best_subsets: 各维度最优子集（结构体数组，包含特征子集和Z值）
+
+function best_subsets = GBB_Algorithm(S, MAX, MIN, sortIdx,Nt,Nr,rhoM, HH)
+    %% 初始化
+    n = length(S); % 特征总数
+    best_subsets = struct('size', num2cell(MIN:MAX), 'subset', {}, 'Z', -inf); % 存储各维度最优子集
+    stack = {}; % 用元胞数组模拟栈
+    Idxarr={} ;
+    % 定义根节点
+    root.S = S;          % 当前特征子集
+    root.Z = real(log2(det(eye(Nr)+rhoM*HH(sortIdx,:)'*HH(sortIdx,:)))); % 计算根节点的Z值
+    root.r = n;          % 剩余特征数（初始为n）
+    root.l = 0;          % 当前层数（根节点为0）
+    stack{end+1} = root; % 将根节点压入栈
+
+    %% 主循环：处理栈中所有节点
+    while ~isempty(stack)
+        current_node = stack{end}; % 弹出栈顶节点（深度优先搜索）
+        stack(end) = [];
+
+        %% 遍历目标维度（从MAX到MIN）
+        for d = MAX:-1:MIN
+            % 检查当前节点的Z值是否超过该维度的历史最优值
+            if current_node.Z > best_subsets(d - MIN + 1).Z
+                best_d = d; % 确定当前目标维度d
+                break;
+            end
+        end
+
+        %% 判断是否满足条件生成子节点
+        if best_d >= MIN && best_d <= MAX
+            % 情况1：当前节点特征数等于目标维度d → 更新最优值
+            if length(current_node.S) == best_d
+                best_subsets(best_d - MIN + 1).subset = current_node.S
+                best_subsets(best_d - MIN + 1).Z = current_node.Z
+
+            % 情况2：当前节点特征数 > d → 生成子节点
+            else
+                % 计算可生成的子节点数m（公式见论文）
+                m = current_node.r - (n - best_d - current_node.l - 1);
+                if m > 0
+                    % 计算移除每个特征后的Z值下降量
+                    features = current_node.S;
+                    decreases = zeros(1, length(features));
+                    for i = 1:length(features)
+                        subset_removed = setdiff(features, features(i));
+                        sortIdx_removed = setdiff(sortIdx, sortIdx(i));
+                        Idxarr{i}= sortIdx_removed;
+                        decreases(i) = current_node.Z - compute_Z(sortIdx_removed);
+                    end
+
+                    % 按Z下降量从小到大排序（影响最小的特征优先移除）
+                    [~, sorted_idx] = sort(decreases, 'ascend');
+                    selected_features = features(sorted_idx(1:m));
+
+                    % 生成子节点并按反向顺序压入栈（修改后的逻辑）
+                    child_nodes = cell(1, m);
+                    for i = m:-1:1
+                        feature_removed = selected_features(i);
+                        child.S = setdiff(features, feature_removed);
+                        child_Idx = Idxarr{m};
+                        child.Z = real(log2(det(eye(length(Idxarr{m}))+rhoM*H(Idxarr{m},:)'*H(Idxarr{m},:))));
+                        child.r = current_node.r - i; % 更新剩余特征数
+                        child.l = current_node.l + 1;  % 层数+1
+                        child_nodes{m - i + 1} = child; % 反向压栈
+                    end
+                    stack = [stack, child_nodes]; % 压入栈
+                end
+            end
+        end
+    end
+end
+
