@@ -1,0 +1,70 @@
+function [selAntSet, numNodes] = OptFBB_MaxCap(H,L,rho,initVal)
+% this is the full-array branch and bound searching method to search the
+% max. cap. at the TX side!! If you want to use it at the Rx side, please input H.' instead of H
+% Algorithms presented in "Y Gao et al, Massive MIMO Antenna Selection: Switching Architectures, Capacity Bounds and Optimal Antenna Selection Algorithms, IEEE trans. signal processing, 2018"
+
+% Copyright reserved by Yuan Gao, gaoyuan88@gmail.com, San Diego, CA, USA
+
+% input: 
+%       H:          channel matrix
+%       L:          the number of beams to be selected
+%       initVal:    initial Bound, should be small enough! (e.g., negative infinity)
+% output:
+%       selAntSet:  the selected ant. set
+%       numNodes:   number of visited nodes, to show the complexity
+
+
+[n,m] = size(H);%H：n行m列阶矩阵
+if m<n
+    error('NOTE: this is TX side!! The number of rows should be less than that of columns')
+end
+% add examine this variable before make it global
+global BOUND;
+global RETVAL;
+global TMPVAL;
+global SEARCHFLAG;
+global NUMUE
+global Nb
+global NUMSEL; % number of beams to be selected
+global NUMNODES
+global Z
+global maxIdxEachLevel 
+
+BOUND           = initVal;
+NUMSEL          = L;
+RETVAL          = zeros(NUMSEL, 1);%%NUMSEL相当于需要选出的天线数量L
+TMPVAL          = zeros(NUMSEL, 1);
+NUMUE           = n;%信道矩阵H的行数
+Nb              = m;%信道矩阵H的列数
+SEARCHFLAG      = 0;
+maxIdxEachLevel = [m-NUMSEL+1:m];
+NUMNODES        = 0;%搜索节点数
+
+rhoBar          = rho/NUMUE;
+power_cols      = sum(abs(H).^2,1); %行向量1*m阶，对应算法表第二行                   % O(Nu*Nb)
+zeta            = zeros(NUMSEL,1);%列向量
+for ll = 1:NUMSEL
+    zeta(ll)=max(power_cols((1:Nb-NUMSEL+1)+(ll-1)));%%对应算法表第三行
+end
+
+Z               = log2(1+rhoBar*zeta);%zeta./(rhoBarInv+zeta);zeta是一个列向量，故Z为NUMSEL*1阶列向量;
+G               = eye(NUMUE);%n*n阶单位矩阵，算法中变量G
+ksi             = zeros(m,1);%算法中变量K
+nu              = power_cols.';%算法中变量Vj,real(diag(H'*G*H));转置变为m*1阶列向量                  
+Delta           = log2(1+rhoBar*nu);%nu./(rhoBarInv+nu); Delta是m*1阶列向量; % O(Nb), the decremental value of Tn 
+Dn              = 0;%算法中变量
+parentNodeIdx = 0; % start from the root node
+optfbb_core(H,1,parentNodeIdx,rhoBar,G,nu,Dn,ksi,Delta);
+
+if SEARCHFLAG > 0
+    selAntSet = RETVAL;%r = RETVAL;
+else
+    selAntSet = []; %r = 0;
+end
+numNodes = NUMNODES;
+
+clear BOUND NUMSEL RETVAL TMPVAL NUMUE SEARCHFLAG maxIdxEachLevel;
+
+
+
+
