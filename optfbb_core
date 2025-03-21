@@ -10,12 +10,11 @@ global NUMNODES
 global Z
 global maxIdxEachLevel
 
-%算法表第五行开始
 if (layer == NUMSEL)
     I               = parentNodeIdx+1:maxIdxEachLevel(NUMSEL);%indices of the child nodes
     DeltaTmp        = Delta(I);
-    dunsort         = Dn+DeltaTmp-Z(layer);%算法表第6行，dunsort是个列向量，行数由DeltaTmp决定，即由size（I）决定
-    [maxVal,maxIdx] = max(dunsort);%maxIdx是最大值对应的位置，算法表第8行
+    dunsort         = Dn+DeltaTmp-Z(layer);%dunsort是个列向量，行数由DeltaTmp决定，即由size（I）决定
+    [maxVal,maxIdx] = max(dunsort);%maxIdx是最大值对应的位置
     if maxVal > BOUND
         TMPVAL(NUMSEL)  = I(maxIdx);
         RETVAL          = TMPVAL;%搜索得到的具体节点编号
@@ -26,7 +25,7 @@ else
     I           = parentNodeIdx+1:maxIdxEachLevel(layer);     %indices of the child nodes    
     DeltaTmp    = Delta(I);
     dunsort     = Dn+DeltaTmp-Z(layer);%算法中变量Cj,每个节点的参考值，假设看作“容量”
-    [~,sortIdx] = sort(dunsort,'descend');  %算法第12行，sortidx是排序之后原先个元素的位置     
+    [~,sortIdx] = sort(dunsort,'descend'); sortidx是排序之后原先个元素的位置     
     Gtmp        = G;
     DnTmp       = Dn;
     nuTmp       = nu;
@@ -34,9 +33,9 @@ else
         d               = dunsort(ii);%d就是dunsort的降序排列
         if (d > BOUND) %相当于回溯
             NUMNODES        = NUMNODES+1;
-            TMPVAL(layer)   = I(ii);%算法第15行，选出的天线编号
-            Iprime          = I(ii)+1:Nb;%算法第17行                                                                                       
-            J               = TMPVAL(layer);%算法第18行
+            TMPVAL(layer)   = I(ii);选出的天线编号
+            Iprime          = I(ii)+1:Nb;                                                                                       
+            J               = TMPVAL(layer);
             g               = Gtmp*H(:,J)/sqrt(1/rhoBar+nuTmp(J));
             G               = Gtmp-g*g'; 
             Dn              = DnTmp + DeltaTmp(ii) - Z(layer); %算法第21行
