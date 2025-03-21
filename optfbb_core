@@ -1,0 +1,53 @@
+function optfbb_core(H,layer,parentNodeIdx,rhoBar,G,nu,Dn,ksi,Delta)
+
+global BOUND;
+global RETVAL;
+global TMPVAL;
+global SEARCHFLAG;
+global Nb
+global NUMSEL;
+global NUMNODES
+global Z
+global maxIdxEachLevel
+
+%算法表第五行开始
+if (layer == NUMSEL)
+    I               = parentNodeIdx+1:maxIdxEachLevel(NUMSEL);%indices of the child nodes
+    DeltaTmp        = Delta(I);
+    dunsort         = Dn+DeltaTmp-Z(layer);%算法表第6行，dunsort是个列向量，行数由DeltaTmp决定，即由size（I）决定
+    [maxVal,maxIdx] = max(dunsort);%maxIdx是最大值对应的位置，算法表第8行
+    if maxVal > BOUND
+        TMPVAL(NUMSEL)  = I(maxIdx);
+        RETVAL          = TMPVAL;%搜索得到的具体节点编号
+        BOUND           = maxVal;
+        SEARCHFLAG      = SEARCHFLAG + 1;
+    end
+else
+    I           = parentNodeIdx+1:maxIdxEachLevel(layer);     %indices of the child nodes    
+    DeltaTmp    = Delta(I);
+    dunsort     = Dn+DeltaTmp-Z(layer);%算法中变量Cj,每个节点的参考值，假设看作“容量”
+    [~,sortIdx] = sort(dunsort,'descend');  %算法第12行，sortidx是排序之后原先个元素的位置     
+    Gtmp        = G;
+    DnTmp       = Dn;
+    nuTmp       = nu;
+    for ii = sortIdx.'       
+        d               = dunsort(ii);%d就是dunsort的降序排列
+        if (d > BOUND) %相当于回溯
+            NUMNODES        = NUMNODES+1;
+            TMPVAL(layer)   = I(ii);%算法第15行，选出的天线编号
+            Iprime          = I(ii)+1:Nb;%算法第17行                                                                                       
+            J               = TMPVAL(layer);%算法第18行
+            g               = Gtmp*H(:,J)/sqrt(1/rhoBar+nuTmp(J));
+            G               = Gtmp-g*g'; 
+            Dn              = DnTmp + DeltaTmp(ii) - Z(layer); %算法第21行
+           
+            %扩展下面四个数列的维度，保证下一次搜索的正常运行 
+            ksi(Iprime)     = H(:,Iprime)'*g;
+            nu(Iprime)      = nuTmp(Iprime) - abs(ksi(Iprime)).^2;%算法第24行
+            Delta(Iprime)   = log2(1+rhoBar*nu(Iprime));%sum(abs(A(Iprime,:)).^2,2)./(rhoBarInv+nu(Iprime));
+            optfbb_core(H,layer+1,I(ii),rhoBar,G,nu,Dn,ksi,Delta);
+        else
+            break;%相当于修剪操作
+        end
+    end
+end
